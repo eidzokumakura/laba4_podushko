@@ -10,7 +10,7 @@ from sqlalchemy.exc import IntegrityError
 app = FastAPI()
 
 # Настройка базы данных MySQL
-SQLALCHEMY_DATABASE_URL = "mysql+pymysql://isp_p_Podushko:12345@192.168.25.23/isp_p_Podushko"
+SQLALCHEMY_DATABASE_URL = "mysql+pymysql://isp_p_Podushko:12345@77.91.86.135/isp_p_Podushko"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
@@ -36,12 +36,13 @@ class Goods(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     good_name = Column(String(50), index=True)
-    workshop_id = Column(Integer, index=True)
+    workshop_id = Column(Integer, ForeignKey("workshops.id"), index=True)
     unit_cost = Column(Integer, index=True)
 
 class Orders(Base):
     __tablename__ = "orders"
 
+    id = Column(Integer, primary_key=True, index=True)
     contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True, primary_key=True)
     good_id = Column(Integer, ForeignKey("goods.id"), index=True)
     amount = Column(Integer, index=True)
@@ -54,7 +55,7 @@ class Workshop(Base):
     phone = Column(String(11), index=True)
 
 # Создание таблиц в базе данных (закоментирована чтобы не пересоздавать таблицы каждый раз)
-# Base.metadata.create_all(bind=engine)
+Base.metadata.create_all(bind=engine)
 
 # Определение Pydantic модели для пользователя
 class UserCreate(BaseModel):
@@ -156,3 +157,15 @@ def delete_good(good_id: int, db: Session = Depends(get_db)):
         db.delete(good)
         db.commit()
         return good
+
+@app.put("/goods/{good_id}", response_model=GoodsResponse)
+def update_good(good_id: int, good: GoodsCreate, db: Session = Depends(get_db)):
+    db_good = Goods(good_name=good.good_name, workshop_id=good.workshop_id, unit_cost=good.unit_cost)
+    current_good = db.query(Goods).filter(Goods.id == good_id).first()
+    if current_good is None:
+        raise HTTPException(status_code=404, detail="Good not found")
+    else:
+        current_good.good_name = db_good.good_name
+        current_good.workshop_id = db_good.workshop_id
+        current_good.unit_cost = db_good.unit_cost
+        db.commit()
