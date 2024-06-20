@@ -1,3 +1,5 @@
+import datetime
+
 import sqlalchemy
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
@@ -44,7 +46,7 @@ class Orders(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
-    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True, primary_key=True)
+    contract_id = Column(Integer, ForeignKey("contracts.id"), nullable=False, index=True)
     good_id = Column(Integer, ForeignKey("goods.id"), index=True)
     amount = Column(Integer, index=True)
 
@@ -102,15 +104,15 @@ class WorkshopResponse(BaseModel):
 class ContractsCreate(BaseModel):
     name: str
     address: str
-    date_registration: str
-    date_completion: str
+    date_registration: datetime.date
+    date_completion: datetime.date
 
 class ContractsResponse(BaseModel):
     id: int
     name: str
     address: str
-    date_registration: str
-    date_completion: str
+    date_registration: datetime.date
+    date_completion: datetime.date
     class Config:
         orm_mode = True
 class OrdersCreate(BaseModel):
@@ -230,7 +232,7 @@ def delete_workshop(workshop_id: int, db: Session = Depends(get_db)):
         db.commit()
         return workshop
 
-@app.put("/workshop/{workshop_id}", response_model=WorkshopResponse)
+@app.put("/workshops/{workshop_id}", response_model=WorkshopResponse)
 def update_workshop(workshop_id: int, workshop: WorkshopCreate, db: Session = Depends(get_db)):
     db_workshop = Workshops(name=workshop.name, workshop_head=workshop.workshop_head, phone=workshop.phone)
     current_workshop = db.query(Workshops).filter(Workshops.id == workshop_id).first()
@@ -300,7 +302,7 @@ def read_contract(contract_id: int, db: Session = Depends(get_db)):
 
 @app.post("/contracts/", response_model=ContractsResponse)
 def create_contract(contract: ContractsCreate, db: Session = Depends(get_db)):
-    db_contract = Contracts(name=contract.name, date_registration=contract.date_registration, date_completion=contract.date_completion)
+    db_contract = Contracts(name=contract.name, address=contract.address, date_registration=contract.date_registration, date_completion=contract.date_completion)
     try:
         db.add(db_contract)
         db.commit()
@@ -322,12 +324,13 @@ def delete_contract(contract_id: int, db: Session = Depends(get_db)):
 
 @app.put("/contracts/{contract_id}", response_model=ContractsResponse)
 def update_contract(contract_id: int, contract: ContractsCreate, db: Session = Depends(get_db)):
-    db_contract = Contracts(name=contract.name, date_registration=contract.date_registration, date_completion=contract.date_completion)
+    db_contract = Contracts(name=contract.name, address=contract.address, date_registration=contract.date_registration, date_completion=contract.date_completion)
     current_contract = db.query(Contracts).filter(Contracts.id == contract_id).first()
     if current_contract is None:
         raise HTTPException(status_code=404, detail="Workshop not found")
     else:
         current_contract.name = db_contract.name
+        current_contract.address = db_contract.address
         current_contract.date_registration = db_contract.date_registration
         current_contract.date_completion = db_contract.date_completion
         db.add(current_contract)
